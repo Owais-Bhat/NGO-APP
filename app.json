@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "csf",
+    "slug": "csf",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "com.owais43.csf"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "csf",
+    "extra": {
+      "eas": {
+        "projectId": "e856e404-61b8-4d72-bbb1-1c4dbcaeabe7"
+      }
+    },
+    "plugins": [
+      "sentry-expo",
+      "expo-asset"
+    ]
+  }
+}
