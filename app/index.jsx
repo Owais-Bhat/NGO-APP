@@ -12,6 +12,8 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FontLoader from "./components/FontLoader";
 
+// Import AsyncStorage
+
 const WelcomeScreen = () => {
   const router = useRouter();
 
@@ -37,16 +39,24 @@ const WelcomeScreen = () => {
       }),
     ]).start();
 
-    // Navigate based on userToken in localStorage after 3 seconds
-    const timer = setTimeout(() => {
-      const userToken = AsyncStorage.getItem("userToken");
+    // Navigate based on userToken in AsyncStorage after 3 seconds
+    const checkUserToken = async () => {
+      try {
+        const userToken = await AsyncStorage.getItem("userToken"); // Retrieve the userToken from AsyncStorage
 
-      // Navigate based on the presence of userToken
-      if (userToken) {
-        router.replace("/tabs/home"); // Navigate to home if userToken exists
-      } else {
-        router.replace("auth/sign_in"); // Navigate to sign-in if userToken does not exist
+        // Navigate based on the presence of userToken
+        if (userToken) {
+          router.replace("/tabs/home"); // Navigate to home if userToken exists
+        } else {
+          router.replace("auth/sign_in"); // Navigate to sign-in if userToken does not exist
+        }
+      } catch (error) {
+        console.error("Error reading userToken from AsyncStorage:", error);
       }
+    };
+
+    const timer = setTimeout(() => {
+      checkUserToken();
     }, 3000);
 
     // Cleanup the timer on unmount
@@ -55,7 +65,7 @@ const WelcomeScreen = () => {
 
   return (
     <FontLoader>
-      <LinearGradient colors={["#e5f6ff", "#e5f6ff"]} style={styles.container}>
+      <LinearGradient colors={["#36C2CE", "#36C2CE"]} style={styles.container}>
         <ImageBackground
           source={require("../assets/chandan_backgrond.png")}
           style={styles.backgroundImage}
@@ -117,7 +127,7 @@ const styles = StyleSheet.create({
   clickableText: {
     fontSize: 23,
     fontWeight: "bold",
-    color: "black", // Color of the text
+    color: "black",
     textAlign: "center",
   },
   clickableTexts: {

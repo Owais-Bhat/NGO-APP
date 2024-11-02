@@ -2,21 +2,22 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
-  Button,
   StyleSheet,
-  Alert,
+  ScrollView,
   TouchableOpacity,
+  Animated,
+  Alert,
 } from "react-native";
+import { TextInput, Button, Provider, Divider } from "react-native-paper";
+import Icon from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 import urls from "../urls";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Icon from "react-native-vector-icons/Ionicons"; // Importing Icons
-import { useNavigation } from "@react-navigation/native"; // For navigation
-import { Divider } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { useRouter } from "expo-router";
 
 const CreateCsfMembers = () => {
-  // Separate state variables for each field
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [father, setFather] = useState("");
@@ -26,34 +27,52 @@ const CreateCsfMembers = () => {
   const [dob, setDob] = useState("");
   const [address, setAddress] = useState("");
   const [donation, setDonation] = useState("");
+  const [errors, setErrors] = useState({});
+  const fadeAnim = useState(new Animated.Value(0))[0];
 
-  const navigation = useNavigation(); // Get navigation hook
+  const router = useRouter();
 
-  // Handler to submit the form
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!name) newErrors.name = "Name is required";
+    if (!mobile) newErrors.mobile = "Mobile number is required";
+    else if (mobile.length !== 10)
+      newErrors.mobile = "Mobile must be 10 digits";
+    if (!age) newErrors.age = "Age is required";
+    if (!address) newErrors.address = "Address is required";
+    if (!donation) newErrors.donation = "Donation amount is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async () => {
-    // Prepare member data with the correct field names
+    if (!validateForm()) return;
+
     const memberData = {
       name,
       mobile,
       father,
       husband,
-      Age: age, // Updated to match schema
+      Age: age,
       education,
-      DOB: dob, // Assuming you want to keep this as well
-      Address: address, // Updated to match schema
-      Donation: donation, // Updated to match schema
+      DOB: dob,
+      Address: address,
+      Donation: donation,
     };
 
-    // Validate required fields
-    if (!name || !mobile || !age || !address || !donation) {
-      Alert.alert("Validation Error", "Please fill in all required fields.");
-      return; // Stop the submission
-    }
     const userToken = await AsyncStorage.getItem("userToken");
     try {
       const config = {
         headers: {
-          Authorization: `Bearer ${userToken}`, // Include the token for authorization
+          Authorization: `Bearer ${userToken}`,
         },
       };
 
@@ -63,21 +82,17 @@ const CreateCsfMembers = () => {
         config
       );
 
-      console.log(response.data);
       Alert.alert("Success", "Member created successfully!");
-      clearForm(); // Call function to clear the form
+      clearForm();
     } catch (error) {
-      console.error("Error creating member:", error);
       Alert.alert(
         "Error",
         "Error creating member: " +
           (error.response?.data?.details || error.message)
       );
-      // Handle error, e.g., show an alert
     }
   };
 
-  // Function to clear the form
   const clearForm = () => {
     setName("");
     setMobile("");
@@ -88,113 +103,193 @@ const CreateCsfMembers = () => {
     setDob("");
     setAddress("");
     setDonation("");
+    setErrors({});
   };
 
   return (
-    <View style={styles.container}>
-      {/* Back arrow button */}
-      <TouchableOpacity
-        onPress={() => navigation.goBack("tabs/home")}
-        style={styles.backButton}
-      >
-        <Icon name="arrow-back" size={24} color="black" />
-      </TouchableOpacity>
-      <Text style={styles.title}>Create Member</Text>
-      <Divider
-        style={{ height: 1, backgroundColor: "black", marginBottom: 15 }}
-      />
+    <Provider>
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <SafeAreaView>
+            <TouchableOpacity
+              onPress={() => router.push("tabs/home")}
+              style={styles.backButton}
+            >
+              <Icon name="arrow-back" size={24} color="#333" />
+            </TouchableOpacity>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Name"
-        value={name}
-        onChangeText={setName}
-      />
+            <Text style={styles.header}>Create Member</Text>
+            <Divider style={styles.divider} />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Mobile"
-        value={mobile}
-        onChangeText={setMobile}
-        keyboardType="phone-pad"
-      />
+            <TextInput
+              mode="outlined"
+              label="Name"
+              value={name}
+              onChangeText={setName}
+              style={styles.input}
+              error={!!errors.name}
+              theme={inputTheme}
+            />
+            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Father's Name"
-        value={father}
-        onChangeText={setFather}
-      />
+            <TextInput
+              mode="outlined"
+              label="Mobile Number"
+              value={mobile}
+              maxLength={10}
+              onChangeText={(text) => {
+                if (text.length <= 10) setMobile(text);
+              }}
+              keyboardType="numeric"
+              style={styles.input}
+              error={!!errors.mobile}
+              theme={inputTheme}
+            />
+            {errors.mobile && (
+              <Text style={styles.errorText}>{errors.mobile}</Text>
+            )}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Husband's Name"
-        value={husband}
-        onChangeText={setHusband}
-      />
+            <TextInput
+              mode="outlined"
+              label="Father's Name"
+              value={father}
+              onChangeText={setFather}
+              style={styles.input}
+              theme={inputTheme}
+            />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Age"
-        value={age}
-        onChangeText={setAge}
-        keyboardType="numeric"
-      />
+            <TextInput
+              mode="outlined"
+              label="Husband's Name"
+              value={husband}
+              onChangeText={setHusband}
+              style={styles.input}
+              theme={inputTheme}
+            />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Education"
-        value={education}
-        onChangeText={setEducation}
-      />
+            <TextInput
+              mode="outlined"
+              label="Age"
+              maxLength={2}
+              value={age}
+              onChangeText={setAge}
+              keyboardType="numeric"
+              style={styles.input}
+              error={!!errors.age}
+              theme={inputTheme}
+            />
+            {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Date of Birth (DOB)"
-        value={dob}
-        onChangeText={setDob}
-        // Use DatePicker for better date selection in production
-      />
+            <TextInput
+              mode="outlined"
+              label="Education"
+              value={education}
+              onChangeText={setEducation}
+              style={styles.input}
+              theme={inputTheme}
+            />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Address"
-        value={address}
-        onChangeText={setAddress}
-      />
+            <TextInput
+              mode="outlined"
+              label="Date of Birth"
+              value={dob}
+              onChangeText={setDob}
+              style={styles.input}
+              theme={inputTheme}
+            />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Donation Amount"
-        value={donation}
-        onChangeText={setDonation}
-        keyboardType="numeric"
-      />
+            <TextInput
+              mode="outlined"
+              label="Address"
+              value={address}
+              onChangeText={setAddress}
+              style={styles.input}
+              error={!!errors.address}
+              theme={inputTheme}
+              multiline
+              numberOfLines={3}
+            />
+            {errors.address && (
+              <Text style={styles.errorText}>{errors.address}</Text>
+            )}
 
-      <Button title="Create Member" onPress={handleSubmit} color="#007BFF" />
-    </View>
+            <TextInput
+              mode="outlined"
+              label="Donation Amount"
+              value={donation}
+              onChangeText={setDonation}
+              keyboardType="numeric"
+              style={styles.input}
+              error={!!errors.donation}
+              theme={inputTheme}
+            />
+            {errors.donation && (
+              <Text style={styles.errorText}>{errors.donation}</Text>
+            )}
+
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleSubmit}
+            >
+              <Text style={styles.submitButtonText}>Create Member</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </ScrollView>
+      </Animated.View>
+    </Provider>
   );
+};
+
+const inputTheme = {
+  colors: {
+    primary: "#36C2CE",
+    error: "#FF0000",
+  },
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
     flex: 1,
-    justifyContent: "center",
-    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#ffffff",
   },
-  title: {
-    fontSize: 24,
+  backButton: {
+    marginBottom: 10,
+  },
+  header: {
+    fontSize: 25,
+    fontFamily: "Q-Medium",
+    color: "#333",
+    marginVertical: 15,
     textAlign: "center",
-    marginBottom: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#ccc",
+    marginBottom: 15,
   },
   input: {
-    height: 40,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    marginBottom: 15,
-    paddingHorizontal: 10,
-    borderRadius: 5,
+    marginVertical: 8,
+    backgroundColor: "#fff",
+  },
+  errorText: {
+    color: "red",
+    marginBottom: 8,
+    marginLeft: 5,
+    fontSize: 12,
+  },
+  submitButton: {
+    backgroundColor: "#36C2CE",
+    padding: 15,
+    borderRadius: 10,
+    marginVertical: 30,
+    alignItems: "center",
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontFamily: "Q-Medium",
   },
 });
 

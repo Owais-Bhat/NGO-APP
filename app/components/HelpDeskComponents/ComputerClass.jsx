@@ -2,180 +2,439 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
-  Button,
+  TouchableOpacity,
   Image,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  FlatList,
+  Alert,
+  ImageBackground,
 } from "react-native";
-import * as ImagePicker from "react-native-image-picker";
-import Icon from "react-native-vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import { Menu, Button, Provider, TextInput } from "react-native-paper";
+import { Picker } from "@react-native-picker/picker";
+import Icons from "react-native-vector-icons/Feather";
+import Icon from "react-native-vector-icons/Ionicons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import urls from "../../urls";
 
 const ComputerClass = () => {
   const router = useRouter();
 
-  // Separate state variables for each input field and image
+  // State variables
   const [name, setName] = useState("");
   const [fatherName, setFatherName] = useState("");
   const [mobile, setMobile] = useState("");
   const [age, setAge] = useState("");
-  const [addharNumber, setAddharNumber] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [gender, setGender] = useState("");
   const [course, setCourse] = useState("");
   const [address, setAddress] = useState("");
+
   const [studentImage, setStudentImage] = useState([]);
-  const [addharImage, setAddharImage] = useState([]);
+  const [aadhaarImage, setAadhaarImage] = useState([]);
 
-  const handleImagePicker = async (type) => {
-    const result = await ImagePicker.launchImageLibrary();
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [imageType, setImageType] = useState("");
 
-    if (!result.didCancel && result.assets) {
-      if (type === "student") {
-        setStudentImage((prevImages) => [...prevImages, result.assets[0]]);
-      } else if (type === "addhar") {
-        setAddharImage((prevImages) => [...prevImages, result.assets[0]]);
+  const genderOptions = ["Male", "Female", "Other"];
+
+  const openMenu = (type) => {
+    setImageType(type);
+    setMenuVisible(true);
+  };
+
+  const closeMenu = () => setMenuVisible(false);
+
+  const pickImage = async (fromCamera) => {
+    let result;
+    if (fromCamera) {
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+    } else {
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 1,
+      });
+    }
+
+    if (!result.canceled) {
+      const selectedImages = result.assets.map((image) => ({
+        uri: image.uri,
+        id: image.assetId || Math.random().toString(),
+      }));
+
+      if (imageType === "student") {
+        if (studentImage.length >= 1) {
+          Alert.alert("Image Limit", "Only 1 student image can be uploaded.");
+        } else {
+          setStudentImage([...studentImage, ...selectedImages.slice(0, 1)]);
+        }
+      } else if (imageType === "aadhaar") {
+        if (aadhaarImage.length >= 2) {
+          Alert.alert("Image Limit", "Only 2 Aadhaar images can be uploaded.");
+        } else {
+          setAadhaarImage([
+            ...aadhaarImage,
+            ...selectedImages.slice(0, 2 - aadhaarImage.length),
+          ]);
+        }
       }
+    }
+    closeMenu();
+  };
+
+  const handleRemoveImage = (type, imageId) => {
+    if (type === "student") {
+      setStudentImage((prevImages) =>
+        prevImages.filter((image) => image.id !== imageId)
+      );
+    } else if (type === "aadhaar") {
+      setAadhaarImage((prevImages) =>
+        prevImages.filter((image) => image.id !== imageId)
+      );
     }
   };
 
-  const handleSubmit = () => {
-    const formData = {
-      name,
-      fatherName,
-      mobile,
-      age,
-      addharNumber,
-      gender,
-      course,
-      address,
-      studentImage,
-      addharImage,
-    };
+  const validateForm = () => {
+    if (!name) {
+      Alert.alert("Validation Error", "Please enter the student's name.");
+      return false;
+    }
+    if (!fatherName) {
+      Alert.alert("Validation Error", "Please enter the father's name.");
+      return false;
+    }
+    if (!mobile || mobile.length !== 10) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter a valid 10-digit mobile number."
+      );
+      return false;
+    }
+    if (!age || isNaN(age) || parseInt(age) < 18) {
+      Alert.alert("Validation Error", "Please enter a valid age.");
+      return false;
+    }
+    if (!aadhaarNumber || aadhaarNumber.length !== 12) {
+      Alert.alert("Validation Error", "Aadhaar number must be 12 digits.");
+      return false;
+    }
+    if (!gender) {
+      Alert.alert("Validation Error", "Please select a gender.");
+      return false;
+    }
+    if (!course) {
+      Alert.alert("Validation Error", "Please enter the course.");
+      return false;
+    }
+    if (!address) {
+      Alert.alert("Validation Error", "Please enter the address.");
+      return false;
+    }
+    return true;
+  };
 
-    // Submit logic here
-    console.log(formData);
-    // Optionally navigate to another screen after submission
-    // navigation.navigate('SomeScreen');
+  const renderImageList = (images, type) => {
+    return (
+      <FlatList
+        horizontal
+        data={images}
+        renderItem={({ item }) => (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: item.uri }} style={styles.imagePreview} />
+            <TouchableOpacity
+              onPress={() => handleRemoveImage(type, item.id)}
+              style={styles.removeButton}
+            >
+              <Icon name="close" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+        )}
+        keyExtractor={(item) => item.id}
+      />
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("fatherName", fatherName);
+    formData.append("mobile", mobile);
+    formData.append("age", age);
+    formData.append("aadhaarNumber", aadhaarNumber);
+    formData.append("gender", gender);
+    formData.append("course", course);
+    formData.append("address", address);
+
+    if (studentImage.length > 0) {
+      formData.append("studentImage", {
+        uri: studentImage[0].uri,
+        type: "image/jpeg",
+        name: "studentImage.jpg",
+      });
+    }
+
+    aadhaarImage.forEach((image, index) => {
+      formData.append(`aadhaarImage_${index + 1}`, {
+        uri: image.uri,
+        type: "image/jpeg",
+        name: `aadhaarImage_${index + 1}.jpg`,
+      });
+    });
+
+    try {
+      const userToken = await AsyncStorage.getItem("userToken");
+
+      const response = await axios.post(
+        `${urls}/api/v1/computer/create_computer`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        Alert.alert("Success", "Registration Successful!");
+        setName("");
+        setFatherName("");
+        setMobile("");
+        setAge("");
+        setAadhaarNumber("");
+        setGender("");
+        setCourse("");
+        setAddress("");
+        setStudentImage([]);
+        setAadhaarImage([]);
+      } else {
+        Alert.alert("Error", "Registration Failed.");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Something went wrong.");
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <TouchableOpacity
-        onPress={() => router.push("tabs/home")}
-        style={styles.backButton}
+    <Provider>
+      <ImageBackground
+        source={require("../../../assets/Background2.png")}
+        style={styles.backgroundImage}
       >
-        <Icon name="arrow-back" size={24} color="black" />
-      </TouchableOpacity>
-      <Text style={styles.title}>Computer Class Registration</Text>
+        <ScrollView contentContainerStyle={styles.container}>
+          <TouchableOpacity
+            onPress={() => router.push("tabs/home")}
+            style={styles.backButton}
+          >
+            <Icon name="arrow-back" size={24} color="black" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Computer Class Registration</Text>
 
-      <TextInput
-        placeholder="Student's Name"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Father's Name"
-        value={fatherName}
-        onChangeText={setFatherName}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Mobile Number"
-        value={mobile}
-        onChangeText={setMobile}
-        style={styles.input}
-        keyboardType="phone-pad"
-      />
-      <TextInput
-        placeholder="Age"
-        value={age}
-        onChangeText={setAge}
-        style={styles.input}
-        keyboardType="numeric"
-      />
-      <TextInput
-        placeholder="Aadhaar Number"
-        value={addharNumber}
-        onChangeText={setAddharNumber}
-        style={styles.input}
-        keyboardType="numeric"
-      />
-      <TextInput
-        placeholder="Gender"
-        value={gender}
-        onChangeText={setGender}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Course"
-        value={course}
-        onChangeText={setCourse}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Address"
-        value={address}
-        onChangeText={setAddress}
-        style={styles.input}
-      />
+          <TextInput
+            label="Student's Name"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+            mode="outlined"
+          />
+          <TextInput
+            label="Father's Name"
+            value={fatherName}
+            onChangeText={setFatherName}
+            style={styles.input}
+            mode="outlined"
+          />
+          <TextInput
+            label="Mobile Number"
+            value={mobile}
+            onChangeText={setMobile}
+            style={styles.input}
+            maxLength={10}
+            keyboardType="phone-pad"
+            mode="outlined"
+          />
+          <TextInput
+            label="Age"
+            value={age}
+            onChangeText={setAge}
+            style={styles.input}
+            maxLength={3}
+            keyboardType="numeric"
+            mode="outlined"
+          />
+          <TextInput
+            label="Aadhaar Number"
+            value={aadhaarNumber}
+            onChangeText={setAadhaarNumber}
+            style={styles.input}
+            maxLength={12}
+            keyboardType="numeric"
+            mode="outlined"
+          />
+          <Picker
+            selectedValue={gender}
+            style={styles.picker}
+            onValueChange={(itemValue) => setGender(itemValue)}
+          >
+            <Picker.Item label="Select Gender" value="" />
+            {genderOptions.map((option) => (
+              <Picker.Item key={option} label={option} value={option} />
+            ))}
+          </Picker>
+          <TextInput
+            label="Course"
+            value={course}
+            onChangeText={setCourse}
+            style={styles.input}
+            mode="outlined"
+          />
+          <TextInput
+            label="Address"
+            value={address}
+            onChangeText={setAddress}
+            style={styles.input}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+          />
 
-      {/* Button to pick Student Image */}
-      <Button
-        title="Pick Student Image"
-        onPress={() => handleImagePicker("student")}
-      />
-      {studentImage.map((image, index) => (
-        <Image
-          key={index}
-          source={{ uri: image.uri }}
-          style={styles.imagePreview}
-        />
-      ))}
+          {/* Image Picker Section */}
+          <Text style={styles.imageLabel}>Student Image:</Text>
+          <View style={styles.imagePicker}>
+            {renderImageList(studentImage, "student")}
+            <TouchableOpacity
+              onPress={() => openMenu("student")}
+              style={styles.imageButton}
+            >
+              <Icons name="plus" size={20} color="white" />
+              <Text style={styles.imageButtonText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Button to pick Aadhaar Image */}
-      <Button
-        title="Pick Aadhaar Image"
-        onPress={() => handleImagePicker("addhar")}
-      />
-      {addharImage.map((image, index) => (
-        <Image
-          key={index}
-          source={{ uri: image.uri }}
-          style={styles.imagePreview}
-        />
-      ))}
+          <Text style={styles.imageLabel}>Aadhaar Image:</Text>
+          <View style={styles.imagePicker}>
+            {renderImageList(aadhaarImage, "aadhaar")}
+            <TouchableOpacity
+              onPress={() => openMenu("aadhaar")}
+              style={styles.imageButton}
+            >
+              <Icons name="plus" size={20} color="white" />
+              <Text style={styles.imageButtonText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
 
-      <Button title="Submit" onPress={handleSubmit} />
-    </ScrollView>
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            style={styles.submitButton}
+          >
+            Submit
+          </Button>
+        </ScrollView>
+
+        <Menu
+          visible={menuVisible}
+          onDismiss={closeMenu}
+          anchor={
+            <Button onPress={() => openMenu(imageType)}>Show Menu</Button>
+          }
+        >
+          <Menu.Item onPress={() => pickImage(true)} title="Take Photo" />
+          <Menu.Item
+            onPress={() => pickImage(false)}
+            title="Choose from Gallery"
+          />
+        </Menu>
+      </ImageBackground>
+    </Provider>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
     flexGrow: 1,
-    backgroundColor: "#fff",
+    padding: 20,
+  },
+  backgroundImage: {
+    flex: 1,
+    resizeMode: "cover",
+  },
+  backButton: {
+    position: "absolute",
+    top: 20,
+    left: 20,
   },
   title: {
     fontSize: 24,
-    marginBottom: 20,
+    fontFamily: "P-Medium",
     textAlign: "center",
+    marginVertical: 40,
   },
   input: {
-    height: 40,
-    borderColor: "gray",
-    borderWidth: 1,
+    marginBottom: 10,
+  },
+  picker: {
+    marginBottom: 10,
+    backgroundColor: "#36C2CE",
+  },
+  imageLabel: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  imagePicker: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 15,
-    paddingHorizontal: 10,
+  },
+  imageContainer: {
+    marginRight: 10,
+    position: "relative",
   },
   imagePreview: {
-    width: 100,
-    height: 100,
-    marginBottom: 10,
+    width: 80,
+    height: 80,
     borderRadius: 10,
+    borderColor: "#ddd",
+    borderWidth: 1,
+  },
+  removeButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: "red",
+    borderRadius: 10,
+    padding: 2,
+  },
+  imageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#36C2CE",
+    padding: 10,
+    borderRadius: 5,
+  },
+  imageButtonText: {
+    color: "white",
+    marginLeft: 5,
+  },
+  submitButton: {
+    marginTop: 20,
+    backgroundColor: "#36C2CE",
+    borderRadius: 10,
+    padding: 5,
+    fontFamily: "P-Regular",
+    textAlign: "center",
+    width: "100%",
+    marginBottom: 20,
   },
 });
 

@@ -1,5 +1,12 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  ImageBackground,
+} from "react-native";
 import { useRouter } from "expo-router";
 
 const HelpDesk = () => {
@@ -24,7 +31,10 @@ const HelpDesk = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require("./../../assets/Background2.png")}
+      style={styles.container}
+    >
       <View style={styles.row}>
         <TouchableOpacity style={styles.categoryBox} onPress={handlekanyadaan}>
           <Image
@@ -84,21 +94,21 @@ const HelpDesk = () => {
           <Text style={styles.categoryText}>श्राद्ध</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
+    padding: 5,
     justifyContent: "center",
     backgroundColor: "white",
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 10,
   },
   categoryBox: {
     width: "48%",
@@ -108,7 +118,7 @@ const styles = StyleSheet.create({
   image: {
     width: 100,
     height: 100,
-    marginBottom: 10,
+    marginBottom: 5,
   },
   categoryText: {
     fontSize: 16,

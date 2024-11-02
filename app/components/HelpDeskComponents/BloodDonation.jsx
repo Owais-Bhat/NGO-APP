@@ -2,29 +2,33 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  ImageBackground,
-  Alert,
   Image,
-  ActivityIndicator,
+  StyleSheet,
+  ScrollView,
+  FlatList,
+  Alert,
+  ImageBackground,
 } from "react-native";
-import RNPickerSelect from "react-native-picker-select";
-import Icon from "react-native-vector-icons/Ionicons";
-import { useRouter } from "expo-router";
-import axios from "axios";
-import urls from "../../urls"; // Ensure your API routes are correct
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import { Menu, Button, Provider, TextInput } from "react-native-paper";
+import { Picker } from "@react-native-picker/picker";
+import Icons from "react-native-vector-icons/Feather";
+import Icon from "react-native-vector-icons/Ionicons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import urls from "../../urls";
 
 const BloodDonation = () => {
   const router = useRouter();
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [imageType, setImageType] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
-    DonerImage: null,
     mobile: "",
-    addharImage: [],
     bloodGroup: "",
     units: "",
     age: "",
@@ -32,43 +36,78 @@ const BloodDonation = () => {
     gender: "",
     address: "",
   });
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
 
-  const userToken = "your-auth-token";
+  const [donerImage, setDonerImage] = useState([]);
+  const [addharImage, setAddharImage] = useState([]);
+
+  const [errors, setErrors] = useState({});
+
+  const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
+
+  const genderOptions = ["Male", "Female", "Other"];
+
+  const openMenu = (type) => {
+    setImageType(type);
+    setMenuVisible(true);
+  };
+
+  const closeMenu = () => setMenuVisible(false);
 
   const handleChange = (name, value) => {
     setFormData({ ...formData, [name]: value });
     setErrors({ ...errors, [name]: "" });
   };
 
-  const pickImage = async (name, multiple = false) => {
-    // Request permission for accessing the image library
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      Alert.alert("Permission to access camera roll is required!");
-      return;
+  const pickImage = async (fromCamera) => {
+    let result;
+    if (fromCamera) {
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+    } else {
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 1,
+      });
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-      ...(multiple && { allowsMultipleSelection: true }),
-    });
-
     if (!result.canceled) {
-      if (multiple) {
-        const selectedImages = result.assets.map((asset) => asset.uri);
-        handleChange(name, selectedImages);
-      } else {
-        handleChange(name, result.assets[0].uri);
+      const selectedImages = result.assets.map((image) => ({
+        uri: image.uri,
+        id: image.assetId || Math.random().toString(),
+      }));
+
+      if (imageType === "doner") {
+        if (donerImage.length >= 1) {
+          Alert.alert("Image Limit", "Only 1 donor image can be uploaded.");
+        } else {
+          setDonerImage([...donerImage, ...selectedImages.slice(0, 1)]);
+        }
+      } else if (imageType === "addhar") {
+        if (addharImage.length >= 2) {
+          Alert.alert("Image Limit", "Only 2 Aadhar images can be uploaded.");
+        } else {
+          setAddharImage([
+            ...addharImage,
+            ...selectedImages.slice(0, 2 - addharImage.length),
+          ]);
+        }
       }
-    } else {
-      Alert.alert("Image selection canceled.");
+    }
+    closeMenu();
+  };
+
+  const handleRemoveImage = (type, imageId) => {
+    if (type === "doner") {
+      setDonerImage((prevImages) =>
+        prevImages.filter((image) => image.id !== imageId)
+      );
+    } else if (type === "addhar") {
+      setAddharImage((prevImages) =>
+        prevImages.filter((image) => image.id !== imageId)
+      );
     }
   };
 
@@ -88,51 +127,66 @@ const BloodDonation = () => {
       newErrors.units = "Please enter the number of units.";
     if (!formData.gender) newErrors.gender = "Please select your gender.";
     if (!formData.address) newErrors.address = "Address cannot be empty.";
-    if (!formData.DonerImage)
-      newErrors.DonerImage = "Please upload the donor image.";
-    if (formData.addharImage.length < 2)
+    if (donerImage.length === 0)
+      newErrors.donerImage = "Please upload the donor image.";
+    if (addharImage.length < 2)
       newErrors.addharImage = "Please upload both sides of your Aadhar card.";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const renderImageList = (images, type) => {
+    return (
+      <FlatList
+        horizontal
+        data={images}
+        renderItem={({ item }) => (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: item.uri }} style={styles.imagePreview} />
+            <TouchableOpacity
+              onPress={() => handleRemoveImage(type, item.id)}
+              style={styles.removeButton}
+            >
+              <Icon name="close" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+        )}
+        keyExtractor={(item) => item.id}
+      />
+    );
+  };
+
   const handleSubmit = async () => {
-    // if (!validate()) return;
+    if (!validate()) return;
 
     setLoading(true);
 
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append("name", formData.name);
-      formDataToSend.append("mobile", formData.mobile);
-      formDataToSend.append("bloodGroup", formData.bloodGroup);
-      formDataToSend.append("units", formData.units);
-      formDataToSend.append("age", formData.age);
-      formDataToSend.append("addarNumber", formData.addarNumber);
-      formDataToSend.append("gender", formData.gender);
-      formDataToSend.append("address", formData.address);
+      Object.keys(formData).forEach((key) => {
+        formDataToSend.append(key, formData[key]);
+      });
 
-      if (formData.DonerImage) {
-        const file = {
-          uri: formData.DonerImage,
-          name: "donerImage.jpg",
+      // Add Donor Image
+      if (donerImage.length > 0) {
+        formDataToSend.append("DonerImage", {
+          uri: donerImage[0].uri,
           type: "image/jpeg",
-        };
-        formDataToSend.append("DonerImage", file);
-      }
-
-      if (formData.addharImage.length) {
-        formData.addharImage.forEach((image, index) => {
-          const file = {
-            uri: image,
-            name: `addharImage${index + 1}.jpg`,
-            type: "image/jpeg",
-          };
-          formDataToSend.append("addharImage", file);
+          name: "donerImage.jpg",
         });
       }
 
+      // Add Aadhar images
+      addharImage.forEach((image, index) => {
+        formDataToSend.append("addharImage", {
+          uri: image.uri,
+          type: "image/jpeg",
+          name: `addharImage${index + 1}.jpg`,
+        });
+      });
+
+      const userToken = await AsyncStorage.getItem("userToken");
       const config = {
         headers: {
           Authorization: `Bearer ${userToken}`,
@@ -145,14 +199,13 @@ const BloodDonation = () => {
         formDataToSend,
         config
       );
+
       Alert.alert("Success", "Donation request submitted successfully!");
 
-      // Reset form data after submission
+      // Reset form
       setFormData({
         name: "",
-        DonerImage: null,
         mobile: "",
-        addharImage: [],
         bloodGroup: "",
         units: "",
         age: "",
@@ -160,6 +213,8 @@ const BloodDonation = () => {
         gender: "",
         address: "",
       });
+      setDonerImage([]);
+      setAddharImage([]);
       setErrors({});
     } catch (error) {
       console.error("Error submitting form", error);
@@ -172,229 +227,254 @@ const BloodDonation = () => {
   };
 
   return (
-    <ImageBackground
-      source={{
-        uri: "https://w7.pngwing.com/pngs/424/92/png-transparent-blood-donation-drop-droplet-miscellaneous-donation-fictional-character-thumbnail.png",
-      }}
-      style={styles.background}
-      blurRadius={5}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity
-          onPress={() => router.push("tabs/home")}
-          style={styles.backButton}
-        >
-          <Icon name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
-        <View style={styles.formContainer}>
+    <Provider>
+      <ImageBackground
+        source={require("../../../assets/Background2.png")}
+        style={styles.backgroundImage}
+      >
+        <ScrollView contentContainerStyle={styles.container}>
+          <TouchableOpacity
+            onPress={() => router.push("tabs/home")}
+            style={styles.backButton}
+          >
+            <Icon name="arrow-back" size={24} color="black" />
+          </TouchableOpacity>
+
           <Text style={styles.title}>Blood Donation Form</Text>
+
           <TextInput
-            style={styles.input}
-            placeholder="Enter your name"
+            label="Your Name"
             value={formData.name}
             onChangeText={(value) => handleChange("name", value)}
+            style={styles.input}
+            mode="outlined"
+            error={!!errors.name}
           />
           {errors.name && <Text style={styles.error}>{errors.name}</Text>}
+
           <TextInput
-            style={styles.input}
-            placeholder="Enter your mobile"
+            label="Mobile Number"
             value={formData.mobile}
             onChangeText={(value) => handleChange("mobile", value)}
-            keyboardType="numeric"
+            style={styles.input}
+            mode="outlined"
+            keyboardType="phone-pad"
+            maxLength={10}
+            error={!!errors.mobile}
           />
           {errors.mobile && <Text style={styles.error}>{errors.mobile}</Text>}
-          <TouchableOpacity
-            onPress={() => pickImage("DonerImage")}
-            style={styles.input}
-          >
-            <Text>Pick Donor Image</Text>
-          </TouchableOpacity>
-          {errors.DonerImage && (
-            <Text style={styles.error}>{errors.DonerImage}</Text>
-          )}
-          {formData.DonerImage && (
-            <Image
-              source={{ uri: formData.DonerImage }}
-              style={styles.imagePreview}
-            />
-          )}
-          <TouchableOpacity
-            onPress={() => pickImage("addharImage", true)}
-            style={styles.input}
-          >
-            <Text>Pick Aadhar Images (Both sides)</Text>
-          </TouchableOpacity>
-          {errors.addharImage && (
-            <Text style={styles.error}>{errors.addharImage}</Text>
-          )}
-          {formData.addharImage.map((image, index) => (
-            <Image
-              key={index}
-              source={{ uri: image }}
-              style={styles.imagePreview}
-            />
-          ))}
-          <RNPickerSelect
-            onValueChange={(value) => handleChange("bloodGroup", value)}
-            items={[
-              { label: "A+", value: "A+" },
-              { label: "A-", value: "A-" },
-              { label: "B+", value: "B+" },
-              { label: "B-", value: "B-" },
-              { label: "AB+", value: "AB+" },
-              { label: "AB-", value: "AB-" },
-              { label: "O+", value: "O+" },
-              { label: "O-", value: "O-" },
-            ]}
-            style={styles.picker}
-            value={formData.bloodGroup || ""} // Default to empty string if null
-            placeholder={{ label: "Select Blood Group", value: undefined }} // Use undefined here
-          />
 
-          {errors.bloodGroup && (
-            <Text style={styles.error}>{errors.bloodGroup}</Text>
-          )}
           <TextInput
-            style={styles.input}
-            placeholder="Enter your age"
-            value={formData.age}
-            onChangeText={(value) => handleChange("age", value)}
-            keyboardType="numeric"
-          />
-          {errors.age && <Text style={styles.error}>{errors.age}</Text>}
-          <TextInput
-            style={styles.input}
-            placeholder="Enter units"
-            value={formData.units}
-            onChangeText={(value) => handleChange("units", value)}
-            keyboardType="numeric"
-          />
-          {errors.units && <Text style={styles.error}>{errors.units}</Text>}
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Aadhar Number"
+            label="Aadhar Number"
             value={formData.addarNumber}
             onChangeText={(value) => handleChange("addarNumber", value)}
+            style={styles.input}
+            mode="outlined"
             keyboardType="numeric"
+            maxLength={12}
+            error={!!errors.addarNumber}
           />
           {errors.addarNumber && (
             <Text style={styles.error}>{errors.addarNumber}</Text>
           )}
-          <RNPickerSelect
-            onValueChange={(value) => handleChange("gender", value)}
-            items={[
-              { label: "Male", value: "Male" },
-              { label: "Female", value: "Female" },
-              { label: "Other", value: "Other" },
-            ]}
-            style={styles.picker}
-            value={formData.gender || ""} // Default to empty string if null
-            placeholder={{ label: "Select Gender", value: undefined }} // Use undefined here
-          />
 
-          {errors.gender && <Text style={styles.error}>{errors.gender}</Text>}
+          <Picker
+            selectedValue={formData.bloodGroup}
+            style={styles.picker}
+            onValueChange={(value) => handleChange("bloodGroup", value)}
+          >
+            <Picker.Item label="Select Blood Group" value="" />
+            {bloodGroups.map((group) => (
+              <Picker.Item key={group} label={group} value={group} />
+            ))}
+          </Picker>
+          {errors.bloodGroup && (
+            <Text style={styles.error}>{errors.bloodGroup}</Text>
+          )}
+
           <TextInput
+            label="Number of Units"
+            value={formData.units}
+            onChangeText={(value) => handleChange("units", value)}
             style={styles.input}
-            placeholder="Enter your address"
+            mode="outlined"
+            keyboardType="numeric"
+            error={!!errors.units}
+          />
+          {errors.units && <Text style={styles.error}>{errors.units}</Text>}
+
+          <TextInput
+            label="Age"
+            value={formData.age}
+            onChangeText={(value) => handleChange("age", value)}
+            style={styles.input}
+            mode="outlined"
+            keyboardType="numeric"
+            maxLength={3}
+            error={!!errors.age}
+          />
+          {errors.age && <Text style={styles.error}>{errors.age}</Text>}
+
+          <Picker
+            selectedValue={formData.gender}
+            style={styles.picker}
+            onValueChange={(value) => handleChange("gender", value)}
+          >
+            <Picker.Item label="Select Gender" value="" />
+            {genderOptions.map((option) => (
+              <Picker.Item key={option} label={option} value={option} />
+            ))}
+          </Picker>
+          {errors.gender && <Text style={styles.error}>{errors.gender}</Text>}
+
+          <TextInput
+            label="Address"
             value={formData.address}
             onChangeText={(value) => handleChange("address", value)}
+            style={styles.input}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            error={!!errors.address}
           />
           {errors.address && <Text style={styles.error}>{errors.address}</Text>}
-          <TouchableOpacity
-            style={styles.submitButton}
+
+          {/* Image Picker Sections */}
+          <Text style={styles.imageLabel}>Donor Image:</Text>
+          <View style={styles.imagePicker}>
+            {renderImageList(donerImage, "doner")}
+            <TouchableOpacity
+              onPress={() => openMenu("doner")}
+              style={styles.imageButton}
+            >
+              <Icons name="plus" size={20} color="white" />
+              <Text style={styles.imageButtonText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
+          {errors.donerImage && (
+            <Text style={styles.error}>{errors.donerImage}</Text>
+          )}
+
+          <Text style={styles.imageLabel}>Aadhar Images:</Text>
+          <View style={styles.imagePicker}>
+            {renderImageList(addharImage, "addhar")}
+            <TouchableOpacity
+              onPress={() => openMenu("addhar")}
+              style={styles.imageButton}
+            >
+              <Icons name="plus" size={20} color="white" />
+              <Text style={styles.imageButtonText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
+          {errors.addharImage && (
+            <Text style={styles.error}>{errors.addharImage}</Text>
+          )}
+
+          <Button
+            mode="contained"
             onPress={handleSubmit}
-            disabled={loading}
+            style={styles.submitButton}
+            loading={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Submit</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </ImageBackground>
+            Submit
+          </Button>
+        </ScrollView>
+
+        <Menu
+          visible={menuVisible}
+          onDismiss={closeMenu}
+          anchor={
+            <Button onPress={() => openMenu(imageType)}>Show Menu</Button>
+          }
+        >
+          <Menu.Item onPress={() => pickImage(true)} title="Take Photo" />
+          <Menu.Item
+            onPress={() => pickImage(false)}
+            title="Choose from Gallery"
+          />
+        </Menu>
+      </ImageBackground>
+    </Provider>
   );
 };
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   container: {
-    padding: 16,
-    flex: 1,
-    justifyContent: "center",
+    flexGrow: 1,
+    padding: 20,
   },
-  formContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  backgroundImage: {
+    flex: 1,
+    resizeMode: "cover",
+  },
+  backButton: {
+    position: "absolute",
+    top: 40,
+    left: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 16,
+    textAlign: "center",
+    marginVertical: 20,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
-    padding: 10,
-    marginVertical: 8,
+    marginBottom: 10,
+    backgroundColor: "white",
   },
   picker: {
-    inputIOS: {
-      paddingVertical: 12,
-      paddingHorizontal: 10,
-      borderWidth: 1,
-      borderColor: "#ccc",
-      borderRadius: 5,
-      color: "black",
-      marginVertical: 8,
-    },
-    inputAndroid: {
-      paddingVertical: 8,
-      paddingHorizontal: 10,
-      borderWidth: 1,
-      borderColor: "#ccc",
-      borderRadius: 5,
-      color: "black",
-      marginVertical: 8,
-    },
+    marginBottom: 10,
+    backgroundColor: "#36C2CE",
   },
   error: {
     color: "red",
-    marginBottom: 8,
+    marginBottom: 10,
+    fontSize: 12,
+  },
+  imageLabel: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  imagePicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  imageContainer: {
+    marginRight: 10,
+    position: "relative",
   },
   imagePreview: {
-    width: "100%",
-    height: 100,
-    marginVertical: 8,
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    borderColor: "#ddd",
+    borderWidth: 1,
+  },
+  removeButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: "red",
+    borderRadius: 10,
+    padding: 2,
+  },
+  imageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#36C2CE",
+    padding: 10,
     borderRadius: 5,
+  },
+  imageButtonText: {
+    color: "white",
+    marginLeft: 5,
   },
   submitButton: {
-    backgroundColor: "#007BFF",
-    padding: 15,
-    borderRadius: 5,
-    alignItems: "center",
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 16,
-  },
-  backButton: {
-    marginBottom: 16,
+    marginTop: 20,
+    backgroundColor: "#36C2CE",
+    padding: 5,
+    borderRadius: 10,
   },
 });
 

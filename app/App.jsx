@@ -30,6 +30,14 @@ const App = () => {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="components/HelpDeskComponents/BloodDonation"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="components/HelpDeskComponents/BloodRequire"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="components/HelpDeskComponents/ChildEducation"
             options={{ headerShown: false }}
           />

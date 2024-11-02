@@ -26,14 +26,11 @@ const Gal = () => {
     const fetchImages = async () => {
       try {
         const { data } = await axios.get(`${urls}/api/v1/admin/get_all_Image`);
-        console.log(data, "Full data");
 
         // Extract and flatten image URLs from the response
         const fetchedImages = data.galleries.reduce((acc, gallery) => {
           return acc.concat(gallery.images.map((image) => image.url)); // Flatten images array
         }, []);
-
-        console.log(fetchedImages, "Flattened images");
 
         // Get the latest 20 images
         const latestImages = fetchedImages.slice(0, 20);
@@ -125,6 +122,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 10,
     backgroundColor: "white",
+    height: 150
   },
 
   loaderContainer: {
@@ -139,11 +137,11 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: screenWidth / 3 - 15, // Each image will take up 1/3 of the width with some margin
-    height: 120, // Set desired height
+    height: 130, // Set desired height
   },
   cardContainer: {
     flex: 1,
-    justifyContent: "flex-end", // Align text to the bottom
+    // justifyContent: "flex-end", // Align text to the bottom
     borderRadius: 10,
     overflow: "hidden", // Ensure the border radius works on the background
   },

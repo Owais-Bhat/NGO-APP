@@ -15,6 +15,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Linking } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import VideoHelp from "../components/VideoHelp";
 
 // Default profile image
 const DEFAULT_PROFILE_IMAGE = require("../../assets/user.png");
@@ -77,7 +78,7 @@ const Profile = () => {
                 style={{
                   fontSize: 24,
                   marginTop: 30,
-                  fontFamily: "P-Medium",
+                  fontFamily: "Q-Medium",
                 }}
               >
                 Profile
@@ -112,7 +113,7 @@ const Profile = () => {
                 <MenuItem
                   icon="people-outline"
                   text="Volunteer Details"
-                  onPress={() => router.push("screen/Volunteer")}
+                  onPress={() => router.push("screen/volunteer")}
                   style={styles.addressItem} // Individual style
                 />
 
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 20,
 
-    fontFamily: "P-Medium",
+    fontFamily: "Q-Medium",
   },
   menuContainer: {
     marginTop: 5,
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
   menuText: {
     flex: 1,
     fontSize: 16,
-    fontFamily: "P-Medium",
+    fontFamily: "Q-Medium",
     marginLeft: 10,
     color: "#000",
   },

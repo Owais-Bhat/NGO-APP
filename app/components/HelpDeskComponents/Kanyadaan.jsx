@@ -11,12 +11,14 @@ import {
   ImageBackground,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-
 import { useRouter } from "expo-router";
 import { Menu, Button, Provider, TextInput } from "react-native-paper";
-import { Picker } from "@react-native-picker/picker"; // Using Picker for dropdown
+import { Picker } from "@react-native-picker/picker";
 import Icons from "react-native-vector-icons/Feather";
 import Icon from "react-native-vector-icons/Ionicons";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Import AsyncStorage
+import axios from "axios"; // Import axios
+import urls from "../../urls";
 
 const Kanyadaan = () => {
   const router = useRouter();
@@ -37,7 +39,7 @@ const Kanyadaan = () => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [imageType, setImageType] = useState("");
 
-  const genderOptions = ["Male", "Female", "Other"]; // Gender options
+  const genderOptions = ["Male", "Female", "Other"];
 
   const openMenu = (type) => {
     setImageType(type);
@@ -48,7 +50,6 @@ const Kanyadaan = () => {
 
   const pickImage = async (fromCamera) => {
     let result;
-
     if (fromCamera) {
       result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -113,7 +114,6 @@ const Kanyadaan = () => {
     }
   };
 
-  // Validation functions
   const validateForm = () => {
     if (!name) {
       Alert.alert("Validation Error", "Please enter your name.");
@@ -156,24 +156,77 @@ const Kanyadaan = () => {
     return true;
   };
 
-  const handleSubmit = () => {
-    if (validateForm()) {
-      const formData = {
-        name,
-        fatherName,
-        mobile,
-        age,
-        aadhaarNumber,
-        gender,
-        course,
-        address,
-        userImage,
-        aadhaarImage,
-        homeImage,
-      };
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
-      console.log(formData);
-      // Submit logic here
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("fatherName", fatherName);
+    formData.append("mobile", mobile);
+    formData.append("age", age);
+    formData.append("aadhaarNumber", aadhaarNumber);
+    formData.append("gender", gender);
+    formData.append("course", course);
+    formData.append("address", address);
+
+    // Attach images
+    if (userImage.length > 0) {
+      formData.append("userImage", {
+        uri: userImage[0].uri,
+        type: "image/jpeg",
+        name: "userImage.jpg",
+      });
+    }
+
+    aadhaarImage.forEach((image, index) => {
+      formData.append(`aadhaarImage_${index + 1}`, {
+        uri: image.uri,
+        type: "image/jpeg",
+        name: `aadhaarImage_${index + 1}.jpg`,
+      });
+    });
+
+    homeImage.forEach((image, index) => {
+      formData.append(`homeImage_${index + 1}`, {
+        uri: image.uri,
+        type: "image/jpeg",
+        name: `homeImage_${index + 1}.jpg`,
+      });
+    });
+
+    try {
+      const userToken = await AsyncStorage.getItem("userToken");
+
+      const response = await axios.post(
+        `${urls}/api/v1/computer/create_marrige`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        Alert.alert("Success", "Registration Successful!");
+        setName("");
+        setFatherName("");
+        setMobile("");
+        setAge("");
+        setAadhaarNumber("");
+        setGender("");
+        setCourse("");
+        setAddress("");
+        setUserImage([]);
+        setAadhaarImage([]);
+        setHomeImage([]);
+      } else {
+        Alert.alert("Error", "Registration Failed.");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Something went wrong.");
     }
   };
 
@@ -219,6 +272,7 @@ const Kanyadaan = () => {
             onChangeText={setName}
             style={styles.input}
             mode="outlined"
+            theme={inputTheme}
           />
           <TextInput
             label="Father's Name"
@@ -226,6 +280,7 @@ const Kanyadaan = () => {
             onChangeText={setFatherName}
             style={styles.input}
             mode="outlined"
+            theme={inputTheme}
           />
           <TextInput
             label="Mobile Number"
@@ -235,6 +290,7 @@ const Kanyadaan = () => {
             maxLength={10}
             keyboardType="phone-pad"
             mode="outlined"
+            theme={inputTheme}
           />
           <TextInput
             label="Age"
@@ -242,6 +298,7 @@ const Kanyadaan = () => {
             onChangeText={setAge}
             style={styles.input}
             maxLength={3}
+            theme={inputTheme}
             keyboardType="numeric"
             mode="outlined"
           />
@@ -252,33 +309,26 @@ const Kanyadaan = () => {
             style={styles.input}
             keyboardType="numeric"
             maxLength={12}
+            theme={inputTheme}
             mode="outlined"
           />
-
-          <View style={styles.dropdownContainer}>
-            <Text style={styles.dropdownLabel}>Gender</Text>
-            <Picker
-              selectedValue={gender}
-              style={styles.dropdown}
-              onValueChange={(itemValue) => setGender(itemValue)}
-            >
-              <Picker.Item label="Select Gender" value="" />
-              {genderOptions.map((genderOption, index) => (
-                <Picker.Item
-                  key={index}
-                  label={genderOption}
-                  value={genderOption}
-                />
-              ))}
-            </Picker>
-          </View>
-
+          <Picker
+            selectedValue={gender}
+            style={styles.picker}
+            onValueChange={(itemValue) => setGender(itemValue)}
+          >
+            <Picker.Item label="Select Gender" value="" />
+            {genderOptions.map((option) => (
+              <Picker.Item key={option} label={option} value={option} />
+            ))}
+          </Picker>
           <TextInput
             label="Course"
             value={course}
             onChangeText={setCourse}
             style={styles.input}
             mode="outlined"
+            theme={inputTheme}
           />
           <TextInput
             label="Address"
@@ -286,156 +336,155 @@ const Kanyadaan = () => {
             onChangeText={setAddress}
             style={styles.input}
             mode="outlined"
+            multiline
+            numberOfLines={3}
+            theme={inputTheme}
           />
 
-          {/* User Image Picker */}
-          <Menu
-            visible={menuVisible && imageType === "user"}
-            onDismiss={closeMenu}
-            anchor={
-              <TouchableOpacity
-                style={styles.imagePickerButton}
-                onPress={() => openMenu("user")}
-              >
-                <Icons name="plus" size={24} color="black" />
-                <Text style={styles.imagePickerText}>Pick User Image</Text>
-              </TouchableOpacity>
-            }
-          >
-            <Menu.Item
-              onPress={() => pickImage(false)}
-              title="Choose from Gallery"
-            />
-            <Menu.Item onPress={() => pickImage(true)} title="Take Photo" />
-          </Menu>
-          {renderImageList(userImage, "user")}
+          {/* Image Picker Section */}
+          <Text style={styles.imageLabel}>User Image:</Text>
+          <View style={styles.imagePicker}>
+            {renderImageList(userImage, "user")}
+            <TouchableOpacity
+              onPress={() => openMenu("user")}
+              style={styles.imageButton}
+            >
+              <Icons name="plus" size={20} color="white" />
+              <Text style={styles.imageButtonText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Aadhaar Image Picker */}
-          <Menu
-            visible={menuVisible && imageType === "aadhaar"}
-            onDismiss={closeMenu}
-            anchor={
-              <TouchableOpacity
-                style={styles.imagePickerButton}
-                onPress={() => openMenu("aadhaar")}
-              >
-                <Icons name="plus" size={24} color="black" />
-                <Text style={styles.imagePickerText}>Pick Aadhaar Image</Text>
-              </TouchableOpacity>
-            }
-          >
-            <Menu.Item
-              onPress={() => pickImage(false)}
-              title="Choose from Gallery"
-            />
-            <Menu.Item onPress={() => pickImage(true)} title="Take Photo" />
-          </Menu>
-          {renderImageList(aadhaarImage, "aadhaar")}
+          <Text style={styles.imageLabel}>Aadhaar Image:</Text>
+          <View style={styles.imagePicker}>
+            {renderImageList(aadhaarImage, "aadhaar")}
+            <TouchableOpacity
+              onPress={() => openMenu("aadhaar")}
+              style={styles.imageButton}
+            >
+              <Icons name="plus" size={20} color="white" />
+              <Text style={styles.imageButtonText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Home Image Picker */}
-          <Menu
-            visible={menuVisible && imageType === "home"}
-            onDismiss={closeMenu}
-            anchor={
-              <TouchableOpacity
-                style={styles.imagePickerButton}
-                onPress={() => openMenu("home")}
-              >
-                <Icons name="plus" size={24} color="black" />
-                <Text style={styles.imagePickerText}>Pick Home Image</Text>
-              </TouchableOpacity>
-            }
-          >
-            <Menu.Item
-              onPress={() => pickImage(false)}
-              title="Choose from Gallery"
-            />
-
-            <Menu.Item onPress={() => pickImage(true)} title="Take Photo" />
-          </Menu>
-          {renderImageList(homeImage, "home")}
+          <Text style={styles.imageLabel}>Home Image:</Text>
+          <View style={styles.imagePicker}>
+            {renderImageList(homeImage, "home")}
+            <TouchableOpacity
+              onPress={() => openMenu("home")}
+              style={styles.imageButton}
+            >
+              <Icons name="plus" size={20} color="white" />
+              <Text style={styles.imageButtonText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
 
           <Button
             mode="contained"
-            style={styles.submitButton}
             onPress={handleSubmit}
+            style={styles.submitButton}
           >
             Submit
           </Button>
         </ScrollView>
+
+        <Menu
+          visible={menuVisible}
+          onDismiss={closeMenu}
+          anchor={
+            <Button onPress={() => openMenu(imageType)}>Show Menu</Button>
+          }
+        >
+          <Menu.Item onPress={() => pickImage(true)} title="Take Photo" />
+          <Menu.Item
+            onPress={() => pickImage(false)}
+            title="Choose from Gallery"
+          />
+        </Menu>
       </ImageBackground>
     </Provider>
   );
 };
 
+const inputTheme = {
+  colors: {
+    primary: "#36C2CE",
+    error: "#FF0000",
+  },
+};
 const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    padding: 20,
+  },
   backgroundImage: {
     flex: 1,
-  },
-  container: {
-    padding: 16,
+    resizeMode: "cover",
   },
   backButton: {
-    marginBottom: 16,
+    position: "absolute",
+    top: 20,
+    left: 20,
   },
   title: {
     fontSize: 24,
-    fontFamily: "P-SemiBold",
-    marginBottom: 16,
+    fontFamily: "P-Medium",
     textAlign: "center",
+    marginVertical: 30,
   },
   input: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  dropdownContainer: {
-    marginBottom: 12,
-  },
-  dropdownLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  dropdown: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 8,
+  picker: {
+    marginBottom: 10,
     backgroundColor: "#36C2CE",
   },
-  imagePickerButton: {
-    marginBottom: 12,
-    paddingVertical: 8,
-
+  imageLabel: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  imagePicker: {
     flexDirection: "row",
     alignItems: "center",
-
-    gap: 8,
-  },
-  imagePickerText: {
-    fontSize: 16,
-    fontFamily: "P-Medium",
+    marginBottom: 15,
   },
   imageContainer: {
-    flexDirection: "row",
-    marginRight: 8,
+    marginRight: 10,
     position: "relative",
   },
   imagePreview: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    marginBottom: 8,
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    borderColor: "#ddd",
+    borderWidth: 1,
   },
   removeButton: {
     position: "absolute",
     top: 0,
     right: 0,
     backgroundColor: "red",
-    borderRadius: 50,
-    padding: 4,
+    borderRadius: 10,
+    padding: 2,
+  },
+  imageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#36C2CE",
+    padding: 10,
+    borderRadius: 5,
+  },
+  imageButtonText: {
+    color: "white",
+    marginLeft: 5,
   },
   submitButton: {
-    marginTop: 16,
+    marginTop: 20,
     backgroundColor: "#36C2CE",
-    borderRadius: 8,
+    borderRadius: 10,
+    padding: 5,
+    fontSize: 20,
+    fontFamily: "P-Medium",
+    color: "white",
   },
 });
 

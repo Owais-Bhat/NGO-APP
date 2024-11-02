@@ -24,7 +24,7 @@ const VolunteerList = () => {
     const fetchVolunteers = async () => {
       try {
         const { data } = await axios.get(
-          "https://csf-cms-backend.onrender.com/api/v1/volunteer/get_volunteer"
+          "https://csfbackend.online/api/v1/volunteer/get_volunteer"
         );
         setVolunteers(data);
         setLoading(false);
@@ -49,7 +49,7 @@ const VolunteerList = () => {
     <View style={styles.volunteerCard}>
       <ImageBackground
         source={{
-          uri: `https://csf-cms-backend.onrender.com/api/v1/volunteer/get_image/${item._id}`,
+          uri: `https://csfbackend.online/api/v1/volunteer/get_image/${item._id}`,
         }}
         style={styles.volunteerImage}
         resizeMode="contain"
@@ -100,6 +100,7 @@ const VolunteerList = () => {
         renderItem={renderVolunteer}
         numColumns={2}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
       />
     </ImageBackground>
   );

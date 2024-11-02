@@ -66,7 +66,7 @@ const Categories = () => {
               key={index}
               subtitle={category.name}
               image={`${urls}/api/v1/categry/singlePhoto-category/${category._id}`}
-              onPress={() => fetchSingleCategory(category._id)}
+              // onPress={() => fetchSingleCategory(category._id)}
             />
           ))}
         </ScrollView>
@@ -98,7 +98,8 @@ const Card = ({ subtitle, image, onPress }) => {
   const [imageError, setImageError] = useState(false);
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <TouchableOpacity style={styles.card}>
+      {/* onPress={onPress} */}
       <Image
         source={imageError ? require("../../assets/logo.png") : { uri: image }} // Fallback image
         style={styles.cardImage}
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
   },
   cardText: {
     fontSize: 12,
-    fontFamily: "P-Regular",
+    // fontFamily: "P-Regular",
     textAlign: "center",
     marginTop: 5,
   },

@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 25,
-    fontFamily: "P-Medium",
+    fontFamily: "Q-Medium",
     marginBottom: -40,
     alignSelf: "center",
     marginTop: 10,

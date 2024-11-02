@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     color: "#555",
-    fontFamily: "P-Regular",
+    // fontFamily: "P-Regular",
     marginTop: 5,
     textAlign: "start", // Center description text
   },

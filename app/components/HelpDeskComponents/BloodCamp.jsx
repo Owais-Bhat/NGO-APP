@@ -8,8 +8,9 @@ import {
   TouchableOpacity,
 } from "react-native";
 import React from "react";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
 
 const BloodCamp = () => {
   const router = useRouter();
@@ -31,7 +32,6 @@ const BloodCamp = () => {
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.container}>
-          {/* Blood Donation Section */}
           <TouchableOpacity
             onPress={() => router.push("tabs/home")}
             style={styles.backButton}
@@ -61,6 +61,10 @@ const BloodCamp = () => {
             <Text style={styles.label}>Blood Require</Text>
           </TouchableOpacity>
         </View>
+        <Stack>
+          <Stack.Screen name="BloodRequire" options={{ headerShown: false }} />
+          <Stack.Screen name="BloodDonation" options={{ headerShown: false }} />
+        </Stack>
       </ScrollView>
     </ImageBackground>
   );
@@ -69,6 +73,8 @@ const BloodCamp = () => {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
+    width: "100%",
+    height: "100%",
   },
   overlay: {
     position: "absolute",
@@ -81,6 +87,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingVertical: 20,
+  },
+  backButton: {
+    marginLeft: 10,
   },
   imageContainer: {
     marginBottom: 30,

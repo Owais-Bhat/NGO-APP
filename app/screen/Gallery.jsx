@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     margin: 10,
     borderWidth: 0.1, // Add a border
     borderColor: "black",
-    elevation: 5, // Add a shadow
+    elevation: 5, // Add a
   },
   modalContainer: {
     flex: 1,

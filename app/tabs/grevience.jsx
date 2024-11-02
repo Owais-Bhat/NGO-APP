@@ -33,7 +33,7 @@ const Grevience = () => {
   const bounceAnim = useState(new Animated.Value(1))[0];
   const router = useRouter();
 
-  const [visible, setVisible] = useState(false); // State for the dropdown
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -200,7 +200,7 @@ const Grevience = () => {
             )}
 
             <TextInput
-              style={[styles.input, { textAlignVertical: "top" }]}
+              style={[styles.input, { verticalAlign: "top" }]}
               placeholder="Description"
               value={description}
               onChangeText={setDescription}
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 25,
-    fontFamily: "P-Medium",
+    fontFamily: "Q-Medium",
     color: "#333",
     marginVertical: 15,
   },
